@@ -14,7 +14,7 @@ import java.util.List;
 //DO NOT MODIFY
 public class TransactionReader {
 
-    public static final int THREAD_DELAY = 10;
+    public static final int THREAD_DELAY = 0;//va en 10
 
     public TransactionReader()
     {

@@ -12,8 +12,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class MoneyLaundering
-{
+public class MoneyLaundering {
+
+    public static int threads = 5; //Los 5 Threads
+    public static AtomicInteger countTr = new AtomicInteger(threads);
+
     private TransactionAnalyzer transactionAnalyzer;
     private TransactionReader transactionReader;
     private int amountOfFilesTotal;
@@ -26,20 +29,53 @@ public class MoneyLaundering
         amountOfFilesProcessed = new AtomicInteger();
     }
 
-    public void processTransactionData()
-    {
+    public void processTransactionData() {
+
         amountOfFilesProcessed.set(0);
         List<File> transactionFiles = getTransactionFileList();
         amountOfFilesTotal = transactionFiles.size();
-        for(File transactionFile : transactionFiles)
-        {            
+
+        for(File transactionFile : transactionFiles) {
+
+            int threads = 5;
+
             List<Transaction> transactions = transactionReader.readTransactionsFromFile(transactionFile);
-            for(Transaction transaction : transactions)
-            {
-                transactionAnalyzer.addTransaction(transaction);
+
+            int longitud = transactions.size();
+
+            //transactionList(0,longitud,transactions);
+
+            TranMoneyThread tranThread[] = new TranMoneyThread[threads];
+            int ini=0; int divi = longitud/threads;int fin = divi;
+            for (int i = 0; i < threads; i++) {
+                if(i==threads-1){
+                    tranThread[i] = new TranMoneyThread(ini,fin,transactions);
+                }else{
+                    tranThread[i] = new TranMoneyThread(ini,longitud,transactions);
+                    tranThread[i].start();
+                }
+                ini += divi;
+                fin += divi;
             }
-            amountOfFilesProcessed.incrementAndGet();
+
+
+
+
+
+
+            /**
+            for(Transaction transaction : transactions) {
+                transactionAnalyzer.addTransaction(transaction);
+
+            }
+            amountOfFilesProcessed.incrementAndGet();*/
         }
+    }
+
+    public void transactionList(int ini, int fin, List<Transaction> transactions){
+        for( int f = ini; f < fin; f ++) {
+            transactionAnalyzer.addTransaction(transactions.get(f));
+        }amountOfFilesProcessed.incrementAndGet();
     }
 
     public List<String> getOffendingAccounts()
@@ -58,15 +94,15 @@ public class MoneyLaundering
         return csvFiles;
     }
 
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
+
         System.out.println(getBanner());
         System.out.println(getHelp());
         MoneyLaundering moneyLaundering = new MoneyLaundering();
         Thread processingThread = new Thread(() -> moneyLaundering.processTransactionData());
         processingThread.start();
-        while(true)
-        {
+
+        while(true) {
             Scanner scanner = new Scanner(System.in);
             String line = scanner.nextLine();
             if(line.contains("exit"))
@@ -79,6 +115,7 @@ public class MoneyLaundering
             String suspectAccounts = offendingAccounts.stream().reduce("", (s1, s2)-> s1 + "\n"+s2);
             message = String.format(message, moneyLaundering.amountOfFilesProcessed.get(), moneyLaundering.amountOfFilesTotal, offendingAccounts.size(), suspectAccounts);
             System.out.println(message);
+
         }
     }
 
@@ -97,5 +134,28 @@ public class MoneyLaundering
     {
         String help = "Type 'exit' to exit the program. Press 'Enter' to get a status update\n";
         return help;
+    }
+
+
+    class TranMoneyThread extends Thread{
+        private List<Transaction> transactions;
+        private int a;
+        private int b;
+
+        public TranMoneyThread(int a, int b, List<Transaction> transactions){
+            super();
+            this.transactions=transactions;
+            this.a=a;
+            this.b=b;
+        }
+        @Override
+        public void run() {
+            synchronized (amountOfFilesProcessed) {
+                for (int f = a; f < b; f++) {
+                    transactionAnalyzer.addTransaction(transactions.get(f));
+                }
+                amountOfFilesProcessed.incrementAndGet();
+            }
+        }
     }
 }
